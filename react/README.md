@@ -1,5 +1,7 @@
 # React Input Mask
 
+This is a forked repo from the original text-mask (which seems no longer maintained) with additional functionality.
+
 ## Getting started
 
 First, install it.
