@@ -1,34 +1,15 @@
-import {convertMaskToPlaceholder, isArray, processCaretTraps} from './utilities'
-import {placeholderChar as defaultPlaceholderChar, strFunction} from './constants'
+import {convertMaskToPlaceholder} from './utilities'
+import {placeholderChar as defaultPlaceholderChar} from './constants'
 
-const emptyArray = []
 const emptyString = ''
 
-export default function conformToMask(rawValue = emptyString, mask = emptyArray, config = {}) {
-  if (!isArray(mask)) {
-    // If someone passes a function as the mask property, we should call the
-    // function to get the mask array - Normally this is handled by the
-    // `createTextMaskInputElement:update` function - this allows mask functions
-    // to be used directly with `conformToMask`
-    if (typeof mask === strFunction) {
-      // call the mask function to get the mask array
-      mask = mask(rawValue, config)
-
-      // mask functions can setup caret traps to have some control over how the caret moves. We need to process
-      // the mask for any caret traps. `processCaretTraps` will remove the caret traps from the mask
-      mask = processCaretTraps(mask).maskWithoutCaretTraps
-    } else {
-      throw new Error(
-        'Text-mask:conformToMask; The mask property must be an array.'
-      )
-    }
-  }
-
+export default function conformToMask(rawValue = emptyString, mask = emptyString, config = {}) {
   // These configurations tell us how to conform the mask
   const {
     guide = true,
     previousConformedValue = emptyString,
     placeholderChar = defaultPlaceholderChar,
+    placeholderCharPositions,
     placeholder = convertMaskToPlaceholder(mask, placeholderChar),
     currentCaretPosition,
     keepCharPositions
@@ -69,8 +50,8 @@ export default function conformToMask(rawValue = emptyString, mask = emptyArray,
 
     // For every character that was deleted from a placeholder position, we add a placeholder char
     for (let i = indexOfFirstChange; i < indexOfLastChange; i++) {
-      if (placeholder[i] === placeholderChar) {
-        compensatingPlaceholderChars += placeholderChar
+      if (placeholderCharPositions[i]) {
+        compensatingPlaceholderChars += placeholder[i]
       }
     }
 
@@ -97,13 +78,11 @@ export default function conformToMask(rawValue = emptyString, mask = emptyArray,
   // then would lay `234` on top of the available placeholder positions in the mask.
   for (let i = rawValueLength - 1; i >= 0; i--) {
     const {char} = rawValueArr[i]
+    const shouldOffset = i >= indexOfFirstChange && previousConformedValueLength === maskLength
+    const offsetIndex = shouldOffset ? i - editDistance : i
 
-    if (char !== placeholderChar) {
-      const shouldOffset = i >= indexOfFirstChange && previousConformedValueLength === maskLength
-
-      if (char === placeholder[(shouldOffset) ? i - editDistance : i]) {
-        rawValueArr.splice(i, 1)
-      }
+    if (!placeholderCharPositions[offsetIndex] && char === placeholder[offsetIndex]) {
+      rawValueArr.splice(i, 1)
     }
   }
 
@@ -117,7 +96,7 @@ export default function conformToMask(rawValue = emptyString, mask = emptyArray,
     const charInPlaceholder = placeholder[i]
 
     // We see one. Let's find out what we can put in it.
-    if (charInPlaceholder === placeholderChar) {
+    if (placeholderCharPositions[i]) {
       // But before that, do we actually have any user characters that need a place?
       if (rawValueArr.length > 0) {
         // We will keep chipping away at user input until either we run out of characters
@@ -130,8 +109,8 @@ export default function conformToMask(rawValue = emptyString, mask = emptyArray,
           // regularly because user input could be something like (540) 90_-____, which includes
           // a bunch of `_` which are placeholder characters) and we are not in *no guide* mode,
           // then we map this placeholder character to the current spot in the placeholder
-          if (rawValueChar === placeholderChar && suppressGuide !== true) {
-            conformedValue += placeholderChar
+          if (rawValueChar === charInPlaceholder && suppressGuide !== true) {
+            conformedValue += charInPlaceholder
 
             // And we go to find the next placeholder character that needs filling
             continue placeholderLoop
@@ -168,11 +147,11 @@ export default function conformToMask(rawValue = emptyString, mask = emptyArray,
               for (let i = 0; i < rawValueArrLength; i++) {
                 const charData = rawValueArr[i]
 
-                if (charData.char !== placeholderChar && charData.isNew === false) {
+                if (charData.char !== charInPlaceholder && charData.isNew === false) {
                   break
                 }
 
-                if (charData.char === placeholderChar) {
+                if (charData.char === charInPlaceholder) {
                   indexOfNextAvailablePlaceholderChar = i
                   break
                 }
@@ -230,7 +209,7 @@ export default function conformToMask(rawValue = emptyString, mask = emptyArray,
 
     // Find the last filled placeholder position and substring from there
     for (let i = 0; i < conformedValue.length; i++) {
-      if (placeholder[i] === placeholderChar) {
+      if (placeholderCharPositions[i]) {
         indexOfLastFilledPlaceholderChar = i
       }
     }

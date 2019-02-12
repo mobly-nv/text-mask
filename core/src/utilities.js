@@ -3,12 +3,6 @@ import {placeholderChar as defaultPlaceholderChar} from './constants'
 const emptyArray = []
 
 export function convertMaskToPlaceholder(mask = emptyArray, placeholderChar = defaultPlaceholderChar) {
-  if (!isArray(mask)) {
-    throw new Error(
-      'Text-mask:convertMaskToPlaceholder; The mask property must be an array.'
-    )
-  }
-
   if (mask.indexOf(placeholderChar) !== -1) {
     throw new Error(
       'Placeholder character must not be used as part of the mask. Please specify a character ' +
@@ -23,8 +17,8 @@ export function convertMaskToPlaceholder(mask = emptyArray, placeholderChar = de
   }).join('')
 }
 
-export function isArray(value) {
-  return (Array.isArray && Array.isArray(value)) || value instanceof Array
+export function findPlaceholderCharPositions(placeholder, mask = emptyArray) {
+  return placeholder.split('').map((char, index) => placeholder[index] !== mask[index])
 }
 
 export function isString(value) {
